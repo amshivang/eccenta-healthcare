@@ -1,0 +1,45 @@
+{
+  "name": "nextjs-postgresql-template",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --webpack",
+    "build": "next build --webpack",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "node --env-file=.env --experimental-strip-types --test test/**/*.test.mjs",
+    "db:setup": "node scripts/setup-db.js && npx drizzle-kit push",
+    "seed:lucknow": "node scripts/seed-lucknow.js",
+    "seed:ecosystem": "node scripts/seed-ecosystem.js",
+    "db:indexes": "node scripts/add-indexes.js"
+  },
+  "dependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "bcryptjs": "^3.0.3",
+    "date-fns": "^4.4.0",
+    "dotenv": "17.3.1",
+    "drizzle-orm": "0.45.2",
+    "jose": "^6.2.9",
+    "jsonwebtoken": "^9.0.3",
+    "lucide-react": "^1.30.0",
+    "mysql2": "^3.23.2",
+    "next": "16.2.6",
+    "react": "19.2.6",
+    "react-dom": "19.2.6"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4.1.17",
+    "@types/google.maps": "^3.65.5",
+    "@types/node": "22.19.15",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "autoprefixer": "^10.5.4",
+    "drizzle-kit": "0.31.10",
+    "eslint": "9.39.4",
+    "eslint-config-next": "16.2.6",
+    "postcss": "8.5.8",
+    "tailwindcss": "4.1.17",
+    "typescript": "5.9.3"
+  }
+}
