@@ -4,75 +4,38 @@ import { users, roles, rolePermissions, permissions } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { verifyPassword, createToken } from "@/lib/auth";
 
+// Demo accounts — work without any database connection
+const DEMO_USERS: Record<string, { id: number; email: string; name: string; role: string; permissions: string[]; phone: string; bloodGroup: string | null; password: string }> = {
+  "patient@eccenta.com": { id: 1, email: "patient@eccenta.com", name: "Arjun Sharma",    role: "PATIENT", permissions: ["VIEW_PATIENT", "CREATE_APPOINTMENT"],    phone: "+91 98765 43210", bloodGroup: "O+", password: "password123" },
+  "dr.mehta@eccenta.com":{ id: 3, email: "dr.mehta@eccenta.com",name: "Dr. Rajesh Mehta",role: "DOCTOR",  permissions: ["VIEW_PATIENT", "CREATE_PRESCRIPTION"],   phone: "+91 99887 76655", bloodGroup: null, password: "password123" },
+  "patient@demo.com":    { id: 1, email: "patient@demo.com",    name: "Arjun Sharma",    role: "PATIENT", permissions: ["VIEW_PATIENT", "CREATE_APPOINTMENT"],    phone: "+91 98765 43210", bloodGroup: "O+", password: "patient123"  },
+  "doctor@demo.com":     { id: 3, email: "doctor@demo.com",     name: "Dr. Rajesh Mehta",role: "DOCTOR",  permissions: ["VIEW_PATIENT", "CREATE_PRESCRIPTION"],   phone: "+91 99887 76655", bloodGroup: null, password: "doctor123"  },
+  "admin@demo.com":      { id: 2, email: "admin@demo.com",      name: "Admin User",      role: "ADMIN",   permissions: ["MANAGE_USERS", "VIEW_REPORTS"],          phone: "+91 98000 00001", bloodGroup: null, password: "admin123"   },
+};
+
+function demoLogin(email: string, password: string) {
+  const u = DEMO_USERS[email.toLowerCase()];
+  if (!u || u.password !== password) return null;
+  const token = createToken({ userId: u.id, email: u.email, role: u.role, permissions: u.permissions, name: u.name });
+  const response = NextResponse.json({ user: { id: u.id, email: u.email, name: u.name, role: u.role, permissions: u.permissions, phone: u.phone, bloodGroup: u.bloodGroup } });
+  response.cookies.set("auth_token", token, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", maxAge: 60 * 60 * 24 * 7, path: "/" });
+  return response;
+}
+
 export async function POST(req: NextRequest) {
+  let email: string | undefined;
+  let password: string | undefined;
   try {
-    const { email, password } = await req.json();
+    const body = await req.json();
+    email = body.email;
+    password = body.password;
     if (!email || !password) {
       return NextResponse.json({ error: "Email and password required" }, { status: 400 });
     }
 
-    // Direct support for demo accounts across serverless/cloud environments
-    if (password === "password123") {
-      if (email === "patient@eccenta.com") {
-        const permissions = ["VIEW_PATIENT", "CREATE_APPOINTMENT"];
-        const token = createToken({
-          userId: 1,
-          email: "patient@eccenta.com",
-          role: "PATIENT",
-          permissions,
-          name: "Arjun Sharma",
-        });
-        const response = NextResponse.json({
-          user: {
-            id: 1,
-            email: "patient@eccenta.com",
-            name: "Arjun Sharma",
-            role: "PATIENT",
-            permissions,
-            phone: "+91 98765 43210",
-            bloodGroup: "O+",
-          },
-        });
-        response.cookies.set("auth_token", token, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === "production",
-          sameSite: "lax",
-          maxAge: 60 * 60 * 24 * 7,
-          path: "/",
-        });
-        return response;
-      }
-
-      if (email === "dr.mehta@eccenta.com") {
-        const permissions = ["VIEW_PATIENT", "CREATE_PRESCRIPTION"];
-        const token = createToken({
-          userId: 3,
-          email: "dr.mehta@eccenta.com",
-          role: "DOCTOR",
-          permissions,
-          name: "Dr. Rajesh Mehta",
-        });
-        const response = NextResponse.json({
-          user: {
-            id: 3,
-            email: "dr.mehta@eccenta.com",
-            name: "Dr. Rajesh Mehta",
-            role: "DOCTOR",
-            permissions,
-            phone: "+91 99887 76655",
-            bloodGroup: null,
-          },
-        });
-        response.cookies.set("auth_token", token, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === "production",
-          sameSite: "lax",
-          maxAge: 60 * 60 * 24 * 7,
-          path: "/",
-        });
-        return response;
-      }
-    }
+    // Always try demo accounts first — no DB needed
+    const demo = demoLogin(email, password);
+    if (demo) return demo;
 
     const userWithRole = await db
       .select({ user: users, role: roles })
@@ -135,6 +98,11 @@ export async function POST(req: NextRequest) {
     return response;
   } catch (error) {
     console.error("Login error:", error);
-    return NextResponse.json({ error: "Invalid credentials or server error" }, { status: 500 });
+    // Fallback to demo login if DB is unavailable
+    if (email && password) {
+      const demo = demoLogin(email, password);
+      if (demo) return demo;
+    }
+    return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
   }
 }
